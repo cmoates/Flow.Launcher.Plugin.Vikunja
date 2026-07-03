@@ -11,14 +11,14 @@ namespace Flow.Launcher.Plugin.Vikunja
     {
         private PluginInitContext? _context;
         private Settings? _settings;
-        private VikujaApiClient? _apiClient;
+        private VikunjaApiClient? _apiClient;
         private TaskParserService? _parser;
 
         public Task InitAsync(PluginInitContext context)
         {
             _context = context;
             _settings = context.API.LoadSettingJsonStorage<Settings>() ?? new Settings();
-            _apiClient = new VikujaApiClient(_settings);
+            _apiClient = new VikunjaApiClient(_settings);
             _parser = new TaskParserService();
             
             return Task.CompletedTask;
@@ -81,7 +81,7 @@ namespace Flow.Launcher.Plugin.Vikunja
                             {
                                 // Refresh settings and API client before making the call
                                 _settings = _context?.API.LoadSettingJsonStorage<Settings>() ?? new Settings();
-                                _apiClient = new VikujaApiClient(_settings);
+                                _apiClient = new VikunjaApiClient(_settings);
                                 
                                 var success = await _apiClient!.CreateTaskAsync(parsedTask, _settings.DefaultProjectId);
                                 if (success)

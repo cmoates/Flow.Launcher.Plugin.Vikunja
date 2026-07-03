@@ -9,12 +9,12 @@ using Flow.Launcher.Plugin.Vikunja.Models;
 
 namespace Flow.Launcher.Plugin.Vikunja
 {
-    public class VikujaApiClient
+    public class VikunjaApiClient
     {
         private readonly HttpClient _httpClient;
         private readonly Settings _settings;
 
-        public VikujaApiClient(Settings settings)
+        public VikunjaApiClient(Settings settings)
         {
             _settings = settings;
             _httpClient = new HttpClient();
