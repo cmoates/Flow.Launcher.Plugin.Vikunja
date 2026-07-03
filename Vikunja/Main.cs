@@ -11,14 +11,22 @@ namespace Flow.Launcher.Plugin.Vikunja
     {
         private PluginInitContext? _context;
         private Settings? _settings;
+        private string? _pluginId;
         private VikunjaApiClient? _apiClient;
         private TaskParserService? _parser;
 
         public Task InitAsync(PluginInitContext context)
         {
             _context = context;
+            _pluginId = context.CurrentPluginMetadata.ID;
             _settings = context.API.LoadSettingJsonStorage<Settings>() ?? new Settings();
-            _apiClient = new VikunjaApiClient(_settings);
+            
+            // Migrate old settings format to multitenant format if needed
+            _settings.MigrateIfNeeded(_pluginId);
+            
+            // Initialize API client with this plugin's configuration
+            var config = _settings.GetConfiguration(_pluginId);
+            _apiClient = new VikunjaApiClient(config);
             _parser = new TaskParserService();
             
             return Task.CompletedTask;
@@ -30,9 +38,11 @@ namespace Flow.Launcher.Plugin.Vikunja
 
             try
             {
+                var config = _settings?.GetConfiguration(_pluginId!);
+
                 if (string.IsNullOrWhiteSpace(query.Search))
                 {
-                    var syntaxHelp = _settings?.ParsingMode == ParsingMode.Todoist
+                    var syntaxHelp = config?.ParsingMode == ParsingMode.Todoist
                         ? "Enter a task with optional due date and tags (#project, p1-p5, @label)"
                         : "Enter a task with optional due date and tags (+project, !1-5, *label)";
 
@@ -46,12 +56,12 @@ namespace Flow.Launcher.Plugin.Vikunja
                 }
 
                 // Validate settings
-                if (string.IsNullOrEmpty(_settings?.ServerUrl) || string.IsNullOrEmpty(_settings?.ApiToken))
+                if (string.IsNullOrEmpty(config?.ServerUrl) || string.IsNullOrEmpty(config?.ApiToken))
                 {
                     results.Add(new Result
                     {
                         Title = "⚠️ Configuration Required",
-                        SubTitle = $"Please configure server URL and API token in settings. Current: URL='{_settings?.ServerUrl}', Token='{(!string.IsNullOrEmpty(_settings?.ApiToken) ? "***" : "empty")}'",
+                        SubTitle = $"Please configure server URL and API token in settings. Current: URL='{config?.ServerUrl}', Token='{(!string.IsNullOrEmpty(config?.ApiToken) ? "***" : "empty")}'",
                         IcoPath = "icon.png",
                         Action = _ =>
                         {
@@ -63,10 +73,10 @@ namespace Flow.Launcher.Plugin.Vikunja
                 }
 
                 // Parse the task
-                var parsedTask = _parser!.ParseTask(query.Search, _settings.ParsingMode);
+                var parsedTask = _parser!.ParseTask(query.Search, config!.ParsingMode);
                 
                 // Build the preview subtitle
-                var subtitle = BuildPreviewSubtitle(parsedTask);
+                var subtitle = BuildPreviewSubtitle(parsedTask, config);
                 
                 results.Add(new Result
                 {
@@ -81,16 +91,18 @@ namespace Flow.Launcher.Plugin.Vikunja
                             {
                                 // Refresh settings and API client before making the call
                                 _settings = _context?.API.LoadSettingJsonStorage<Settings>() ?? new Settings();
-                                _apiClient = new VikunjaApiClient(_settings);
+                                _settings.MigrateIfNeeded(_pluginId!);
+                                var currentConfig = _settings.GetConfiguration(_pluginId!);
+                                _apiClient = new VikunjaApiClient(currentConfig);
                                 
-                                var success = await _apiClient!.CreateTaskAsync(parsedTask, _settings.DefaultProjectId);
+                                var success = await _apiClient!.CreateTaskAsync(parsedTask, currentConfig.DefaultProjectId);
                                 if (success)
                                 {
                                     _context?.API.ShowMsg("Task Created", $"Successfully created task: {parsedTask.Title}");
                                 }
                                 else
                                 {
-                                    _context?.API.ShowMsg("Error", $"Failed to create task. Check Flow Launcher logs for details.\nServer: {_settings.ServerUrl}\nProject ID: {_settings.DefaultProjectId}");
+                                    _context?.API.ShowMsg("Error", $"Failed to create task. Check Flow Launcher logs for details.\nServer: {currentConfig.ServerUrl}\nProject ID: {currentConfig.DefaultProjectId}");
                                 }
                             }
                             catch (Exception ex)
@@ -115,7 +127,7 @@ namespace Flow.Launcher.Plugin.Vikunja
             return results;
         }
 
-        private string BuildPreviewSubtitle(ParsedTask task)
+        private string BuildPreviewSubtitle(ParsedTask task, PluginConfiguration config)
         {
             var parts = new List<string>();
             
@@ -127,7 +139,7 @@ namespace Flow.Launcher.Plugin.Vikunja
                 
             if (!string.IsNullOrEmpty(task.Project))
                 parts.Add($"Project:{task.Project}");
-            else if (_settings?.DefaultProjectId > 0)
+            else if (config.DefaultProjectId > 0)
                 parts.Add("Project:Default");
                 
             if (task.DueDate.HasValue)
@@ -163,7 +175,7 @@ namespace Flow.Launcher.Plugin.Vikunja
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
         public System.Windows.Controls.Control CreateSettingPanel()
         {
-            return new SettingsPanel(_context!, _settings!);
+            return new SettingsPanel(_context!, _settings!, _pluginId!);
         }
     }
 }

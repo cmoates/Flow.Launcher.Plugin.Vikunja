@@ -12,19 +12,19 @@ namespace Flow.Launcher.Plugin.Vikunja
     public class VikunjaApiClient
     {
         private readonly HttpClient _httpClient;
-        private readonly Settings _settings;
+        private readonly PluginConfiguration _config;
 
-        public VikunjaApiClient(Settings settings)
+        public VikunjaApiClient(PluginConfiguration config)
         {
-            _settings = settings;
+            _config = config;
             _httpClient = new HttpClient();
             
             // Clear any existing authorization headers
             _httpClient.DefaultRequestHeaders.Authorization = null;
             
-            if (!string.IsNullOrEmpty(_settings.ApiToken))
+            if (!string.IsNullOrEmpty(_config.ApiToken))
             {
-                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_settings.ApiToken}");
+                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_config.ApiToken}");
             }
             else
             {
@@ -70,7 +70,7 @@ namespace Flow.Launcher.Plugin.Vikunja
                 var taskJson = JsonConvert.SerializeObject(vikujaTask, jsonSettings);
                 var content = new StringContent(taskJson, Encoding.UTF8, "application/json");
 
-                var url = $"{_settings.ServerUrl.TrimEnd('/')}/api/v1/projects/{projectId}/tasks";
+                var url = $"{_config.ServerUrl.TrimEnd('/')}/api/v1/projects/{projectId}/tasks";
                 
                 if (parsedTask.DueDate.HasValue)
                 {
@@ -107,7 +107,7 @@ namespace Flow.Launcher.Plugin.Vikunja
         {
             try
             {
-                var url = $"{_settings.ServerUrl.TrimEnd('/')}/api/v1/projects";
+                var url = $"{_config.ServerUrl.TrimEnd('/')}/api/v1/projects";
                 
                 var response = await _httpClient.GetAsync(url);
                 
@@ -150,7 +150,7 @@ namespace Flow.Launcher.Plugin.Vikunja
                             Encoding.UTF8, 
                             "application/json");
 
-                        var url = $"{_settings.ServerUrl.TrimEnd('/')}/api/v1/tasks/{taskId}/labels";
+                        var url = $"{_config.ServerUrl.TrimEnd('/')}/api/v1/tasks/{taskId}/labels";
                         
                         var response = await _httpClient.PutAsync(url, content);
                     }
@@ -168,7 +168,7 @@ namespace Flow.Launcher.Plugin.Vikunja
             try
             {
                 // First try to find existing label
-                var url = $"{_settings.ServerUrl.TrimEnd('/')}/api/v1/labels";
+                var url = $"{_config.ServerUrl.TrimEnd('/')}/api/v1/labels";
                 
                 var response = await _httpClient.GetAsync(url);
                 
@@ -196,7 +196,7 @@ namespace Flow.Launcher.Plugin.Vikunja
                 var labelJson = JsonConvert.SerializeObject(newLabel);
                 var content = new StringContent(labelJson, Encoding.UTF8, "application/json");
 
-                var createUrl = $"{_settings.ServerUrl.TrimEnd('/')}/api/v1/labels";
+                var createUrl = $"{_config.ServerUrl.TrimEnd('/')}/api/v1/labels";
                 
                 var createResponse = await _httpClient.PutAsync(createUrl, content);
                 var createContent = await createResponse.Content.ReadAsStringAsync();
@@ -218,7 +218,7 @@ namespace Flow.Launcher.Plugin.Vikunja
         {
             try
             {
-                var response = await _httpClient.GetAsync($"{_settings.ServerUrl}/api/v1/user");
+                var response = await _httpClient.GetAsync($"{_config.ServerUrl}/api/v1/user");
                 return response.IsSuccessStatusCode;
             }
             catch

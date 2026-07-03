@@ -12,16 +12,18 @@ namespace Flow.Launcher.Plugin.Vikunja
     {
         private readonly PluginInitContext _context;
         private readonly Settings _settings;
+        private readonly string _pluginId;
         private readonly bool _isDarkMode;
         private readonly SolidColorBrush _backgroundColor;
         private readonly SolidColorBrush _foregroundColor;
         private readonly SolidColorBrush _secondaryForegroundColor;
         private readonly SolidColorBrush _accentColor;
 
-        public SettingsPanel(PluginInitContext context, Settings settings)
+        public SettingsPanel(PluginInitContext context, Settings settings, string pluginId)
         {
             _context = context;
             _settings = settings;
+            _pluginId = pluginId;
             
             // Detect dark mode from Windows settings
             _isDarkMode = IsWindowsInDarkMode();
@@ -241,15 +243,17 @@ namespace Flow.Launcher.Plugin.Vikunja
         {
             if (Content is StackPanel stackPanel)
             {
+                var config = _settings.GetConfiguration(_pluginId);
+                
                 var serverUrlTextBox = stackPanel.Children.OfType<TextBox>().FirstOrDefault(t => t.Name == "ServerUrlTextBox");
                 var apiTokenTextBox = stackPanel.Children.OfType<TextBox>().FirstOrDefault(t => t.Name == "ApiTokenTextBox");
                 var defaultProjectTextBox = stackPanel.Children.OfType<TextBox>().FirstOrDefault(t => t.Name == "DefaultProjectTextBox");
                 var parsingModeComboBox = stackPanel.Children.OfType<ComboBox>().FirstOrDefault(t => t.Name == "ParsingModeComboBox");
 
-                if (serverUrlTextBox != null) serverUrlTextBox.Text = _settings.ServerUrl;
-                if (apiTokenTextBox != null) apiTokenTextBox.Text = _settings.ApiToken;
-                if (defaultProjectTextBox != null) defaultProjectTextBox.Text = _settings.DefaultProjectId.ToString();
-                if (parsingModeComboBox != null) parsingModeComboBox.SelectedIndex = (int)_settings.ParsingMode;
+                if (serverUrlTextBox != null) serverUrlTextBox.Text = config.ServerUrl;
+                if (apiTokenTextBox != null) apiTokenTextBox.Text = config.ApiToken;
+                if (defaultProjectTextBox != null) defaultProjectTextBox.Text = config.DefaultProjectId.ToString();
+                if (parsingModeComboBox != null) parsingModeComboBox.SelectedIndex = (int)config.ParsingMode;
             }
         }
 
@@ -262,15 +266,19 @@ namespace Flow.Launcher.Plugin.Vikunja
                 var defaultProjectTextBox = stackPanel.Children.OfType<TextBox>().FirstOrDefault(t => t.Name == "DefaultProjectTextBox");
                 var parsingModeComboBox = stackPanel.Children.OfType<ComboBox>().FirstOrDefault(t => t.Name == "ParsingModeComboBox");
 
-                if (serverUrlTextBox != null) _settings.ServerUrl = serverUrlTextBox.Text.Trim();
-                if (apiTokenTextBox != null) _settings.ApiToken = apiTokenTextBox.Text.Trim();
+                var config = _settings.GetConfiguration(_pluginId);
+                
+                if (serverUrlTextBox != null) config.ServerUrl = serverUrlTextBox.Text.Trim();
+                if (apiTokenTextBox != null) config.ApiToken = apiTokenTextBox.Text.Trim();
                 
                 if (defaultProjectTextBox != null && int.TryParse(defaultProjectTextBox.Text, out int projectId))
-                    _settings.DefaultProjectId = projectId;
+                    config.DefaultProjectId = projectId;
 
                 if (parsingModeComboBox != null)
-                    _settings.ParsingMode = (ParsingMode)parsingModeComboBox.SelectedIndex;
+                    config.ParsingMode = (ParsingMode)parsingModeComboBox.SelectedIndex;
 
+                _settings.SetConfiguration(_pluginId, config);
+                
                 _context.API.SavePluginSettings();
                 MessageBox.Show("Settings saved successfully!", "Vikunja Plugin");
             }
